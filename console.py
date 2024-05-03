@@ -16,7 +16,7 @@ class HBNBCommand(cmd.Cmd):
     """ Contains the functionality for the HBNB console"""
 
     # determines prompt for interactive/non-interactive modes
-    prompt = "(hbnb) " 
+    prompt = '(hbnb) ' if sys.__stdin__.isatty() else ''
 
     classes = {
                'BaseModel': BaseModel, 'User': User, 'Place': Place,
@@ -74,7 +74,7 @@ class HBNBCommand(cmd.Cmd):
                 if pline:
                     # check for *args or **kwargs
                     if pline[0] == '{' and pline[-1] == '}'\
-                            and type(eval(pline)) is dict:
+                            and type(eval(pline)) == dict:
                         _args = pline
                     else:
                         _args = pline.replace(',', '')
@@ -116,32 +116,23 @@ class HBNBCommand(cmd.Cmd):
     def do_create(self, args):
         """ Create an object of any class"""
         try:
-            class_name = args.split(" ")[0]
-        except IndexError:
-            pass
-        if not class_name:
+            if not args:
+                raise SyntaxError()
+            args_list = args.split(" ")
+            kw = {}
+            for arg in args_list[1:]:
+                arg_in_list = arg.split("=")
+                arg_in_list[1] = eval(arg_in_list[1])
+                if type(arg_in_list[1]) is str:
+                    arg_in_list[1] = arg_in_list[1].replace("_", " ").replace('"', '\\"')
+                kw[arg_in_list[0]] = arg_in_list[1]
+        except SyntaxError:
             print("** class name missing **")
-            return
-        elif class_name not in HBNBCommand.classes:
+        except NameError:
             print("** class doesn't exist **")
-            return
-        all_list = args.split(" ")
-        new_instance = eval(class_name)()
-        for i in range(1, len(all_list)):
-            key,value = tuple(all_list[i].split("="))
-            if value.startswith('"'):
-                value = value.strip('"').replace("_", " ")
-            else:
-                try:
-                    value = eval(value)
-                except Exception:
-                    print(f"** couldnt evaluate {value}")
-                    pass
-            if hasattr(new_instance, key):
-                setattr(new_instance, key, value)
-        storage.new(new_instance)
-        print(new_instance.id)
+        new_instance = HBNBCommand.classes[args_list[0]](**kw)
         new_instance.save()
+        print(new_instance.id)
 
     def help_create(self):
         """ Help information for the create method """
@@ -204,7 +195,7 @@ class HBNBCommand(cmd.Cmd):
         key = c_name + "." + c_id
 
         try:
-            del(storage.all()[key])
+            del (storage.all()[key])
             storage.save()
         except KeyError:
             print("** no instance found **")
@@ -223,11 +214,11 @@ class HBNBCommand(cmd.Cmd):
             if args not in HBNBCommand.classes:
                 print("** class doesn't exist **")
                 return
-            for k, v in storage._FileStorage__objects.items():
+            for k, v in storage.all(HBNBCommand.classes[args]).items():
                 if k.split('.')[0] == args:
                     print_list.append(str(v))
         else:
-            for k, v in storage._FileStorage__objects.items():
+            for k, v in storage.all.items():
                 print_list.append(str(v))
 
         print(print_list)
@@ -336,6 +327,7 @@ class HBNBCommand(cmd.Cmd):
         """ Help information for the update class """
         print("Updates an object with new information")
         print("Usage: update <className> <id> <attName> <attVal>\n")
+
 
 if __name__ == "__main__":
     HBNBCommand().cmdloop()
